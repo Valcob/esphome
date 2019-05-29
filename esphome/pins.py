@@ -2,12 +2,10 @@ from __future__ import division
 
 import logging
 
-import voluptuous as vol
-
 import esphome.config_validation as cv
-from esphome.const import CONF_INVERTED, CONF_MODE, CONF_NUMBER, CONF_PCF8574
+from esphome.const import CONF_INVERTED, CONF_MODE, CONF_NUMBER
 from esphome.core import CORE
-from esphome.cpp_types import Component, esphome_ns, io_ns
+from esphome.util import SimpleRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,12 +52,12 @@ ESP8266_BOARD_PINS = {
                   'D8': 12, 'D9': 13, 'D10': 15, 'D11': 13, 'D12': 12, 'D13': 14},
     'wifinfo': {'LED': 12, 'D0': 16, 'D1': 5, 'D2': 4, 'D3': 0, 'D4': 2, 'D5': 14, 'D6': 12,
                 'D7': 13, 'D8': 15, 'D9': 3, 'D10': 1},
-    'wio_link': {'LED': 2, 'GROVE': 15},
-    'wio_node': 'nodemcu',
+    'wio_link': {'LED': 2, 'GROVE': 15, 'D0': 14, 'D1': 12, 'D2': 13, 'BUTTON': 0},
+    'wio_node': {'LED': 2, 'GROVE': 15, 'D0': 3, 'D1': 5, 'BUTTON': 0},
     'xinabox_cw01': {'SDA': 2, 'SCL': 14, 'LED': 5, 'LED_RED': 12, 'LED_GREEN': 13}
 }
 
-FLASH_SIZE_1_MB = 2**20
+FLASH_SIZE_1_MB = 2 ** 20
 FLASH_SIZE_512_KB = FLASH_SIZE_1_MB // 2
 FLASH_SIZE_2_MB = 2 * FLASH_SIZE_1_MB
 FLASH_SIZE_4_MB = 4 * FLASH_SIZE_1_MB
@@ -127,9 +125,18 @@ ESP32_BOARD_PINS = {
                   'SW2': 2, 'SW3': 0, 'POT1': 32, 'POT2': 33, 'PIEZO1': 19, 'PIEZO2': 18,
                   'PHOTO': 25, 'DHT_PIN': 26, 'S1': 4, 'S2': 16, 'S3': 18, 'S4': 19, 'S5': 21,
                   'SDA': 27, 'SCL': 14, 'SS': 19, 'MOSI': 21, 'MISO': 22, 'SCK': 23},
+    'bpi-bit': {'BUZZER': 25, 'BUTTON_A': 35, 'BUTTON_B': 27, 'RGB_LED': 4, 'LIGHT_SENSOR1': 36,
+                'LIGHT_SENSOR2': 39, 'TEMPERATURE_SENSOR': 34, 'MPU9250_INT': 0, 'P0': 25, 'P1': 32,
+                'P2': 33, 'P3': 13, 'P4': 15, 'P5': 35, 'P6': 12, 'P7': 14, 'P8': 16, 'P9': 17,
+                'P10': 26, 'P11': 27, 'P12': 2, 'P13': 18, 'P14': 19, 'P15': 23, 'P16': 5,
+                'P19': 22, 'P20': 21, 'DAC1': 26},
+    'd-duino-32': {'SDA': 5, 'SCL': 4, 'SS   ': 15, 'MOSI ': 13, 'MISO ': 12, 'SCK  ': 14, 'D1': 5,
+                   'D2': 4, 'D3': 0, 'D4': 2, 'D5': 14, 'D6': 12, 'D7': 13, 'D8': 15, 'D9': 3,
+                   'D10': 1},
     'esp-wrover-kit': {},
     'esp32-evb': {'BUTTON': 34, 'SDA': 13, 'SCL': 16, 'SS': 17, 'MOSI': 2, 'MISO': 15, 'SCK': 14},
     'esp32-gateway': {'LED': 33, 'BUTTON': 34, 'SCL': 16, 'SDA': 17},
+    'esp32-poe': {'BUTTON': 34, 'SDA': 13, 'SCL': 16, 'MOSI': 2, 'MISO': 15, 'SCK': 14},
     'esp320': {'LED': 5, 'SDA': 2, 'SCL': 14, 'SS': 15, 'MOSI': 13, 'MISO': 12, 'SCK': 14},
     'esp32dev': {},
     'esp32doit-devkit-v1': {'LED': 2},
@@ -142,12 +149,15 @@ ESP32_BOARD_PINS = {
                      'A0': 26, 'A1': 25, 'A2': 34, 'A4': 36, 'A5': 4, 'A6': 14, 'A7': 32, 'A8': 15,
                      'A9': 33, 'A10': 27, 'A11': 12, 'A12': 13, 'A13': 35},
     'firebeetle32': {'LED': 2},
+    'fm-devkit': {'LED': 5, 'SW1': 4, 'SW2': 18, 'SW3': 19, 'SW4': 21, 'I2S_MCLK': 2,
+                  'I2S_LRCLK': 25, 'I2S_SCLK': 26, 'I2S_DOUT': 22, 'D0': 34, 'D1': 35, 'D2': 32,
+                  'D3': 33, 'D4': 27, 'D5': 14, 'D6': 12, 'D7': 13, 'D8': 15, 'D9': 23, 'D10': 0,
+                  'SDA': 16, 'SCL': 17},
     'heltec_wifi_kit_32': {'LED': 25, 'BUTTON': 0, 'A1': 37, 'A2': 38},
     'heltec_wifi_lora_32': {'LED': 25, 'BUTTON': 0, 'SDA': 4, 'SCL': 15, 'SS': 18, 'MOSI': 27,
-                            'SCK': 5, 'A1': 37, 'A2': 38, 'T8': 32, 'T9': 33, 'DAC1': 26,
-                            'DAC2': 25, 'OLED_SCL': 15, 'OLED_SDA': 4, 'OLED_RST': 16,
-                            'LORA_SCK': 5, 'LORA_MOSI': 27, 'LORA_MISO': 19, 'LORA_CS': 18,
-                            'LORA_RST': 14, 'LORA_IRQ': 26},
+                            'SCK': 5, 'A1': 37, 'A2': 38, 'OLED_SCL': 15, 'OLED_SDA': 4,
+                            'OLED_RST': 16, 'LORA_SCK': 5, 'LORA_MOSI': 27, 'LORA_MISO': 19,
+                            'LORA_CS': 18, 'LORA_RST': 14, 'LORA_IRQ': 26},
     'hornbill32dev': {'LED': 13, 'BUTTON': 0},
     'hornbill32minima': {'SS': 2},
     'intorobot': {'LED': 4, 'LED_RED': 27, 'LED_GREEN': 21, 'LED_BLUE': 22,
@@ -159,6 +169,12 @@ ESP32_BOARD_PINS = {
     'lolin_d32': {'LED': 5, 'VBAT': 35},
     'lolin_d32_pro': {'LED': 5, 'VBAT': 35, 'TF_CS': 4, 'TS_CS': 12, 'TFT_CS': 14, 'TFT_LED': 32,
                       'TFT_RST': 33, 'TFT_DC': 27},
+    'lopy': {'LORA_SCK': 5, 'LORA_MISO': 19, 'LORA_MOSI': 27, 'LORA_CS': 17, 'LORA_RST': 18,
+             'LORA_IRQ': 23, 'LED': 0, 'ANT_SELECT': 16, 'SDA': 12, 'SCL': 13, 'SS': 17,
+             'MOSI': 22, 'MISO': 37, 'SCK': 13, 'A1': 37, 'A2': 38},
+    'lopy4': {'LORA_SCK': 5, 'LORA_MISO': 19, 'LORA_MOSI': 27, 'LORA_CS': 18, 'LORA_IRQ': 23,
+              'LED': 0, 'ANT_SELECT': 21, 'SDA': 12, 'SCL': 13, 'SS': 18, 'MOSI': 22, 'MISO': 37,
+              'SCK': 13, 'A1': 37, 'A2': 38},
     'm5stack-core-esp32': {'TXD2': 17, 'RXD2': 16, 'G23': 23, 'G19': 19, 'G18': 18, 'G3': 3,
                            'G16': 16, 'G21': 21, 'G2': 2, 'G12': 12, 'G15': 15, 'G35': 35,
                            'G36': 36, 'G25': 25, 'G26': 26, 'G1': 1, 'G17': 17, 'G22': 22, 'G5': 5,
@@ -184,14 +200,27 @@ ESP32_BOARD_PINS = {
     'nodemcu-32s': {'LED': 2, 'BUTTON': 0},
     'odroid_esp32': {'LED': 2, 'SDA': 15, 'SCL': 4, 'SS': 22, 'ADC1': 35, 'ADC2': 36},
     'onehorse32dev': {'LED': 5, 'BUTTON': 0, 'A1': 37, 'A2': 38},
+    'oroca_edubot': {'LED': 13, 'TX': 17, 'RX': 16, 'SDA': 23, 'SS': 2, 'MOSI': 18, 'SCK': 5,
+                     'A0': 34, 'A1': 39, 'A2': 36, 'A3': 33, 'D0': 4, 'D1': 16, 'D2': 17, 'D3': 22,
+                     'D4': 23, 'D5': 5, 'D6': 18, 'D7': 19, 'D8': 33, 'VBAT': 35},
     'pico32': {},
     'pocket_32': {'LED': 16},
     'quantum': {},
     'ttgo-lora32-v1': {'LED': 2, 'BUTTON': 0, 'SS': 18, 'MOSI': 27, 'SCK': 5, 'A1': 37, 'A2': 38,
-                       'T8': 32, 'T9': 33, 'DAC1': 26, 'DAC2': 25, 'OLED_SDA': 4, 'OLED_SCL': 15,
-                       'OLED_RST': 16, 'LORA_SCK': 5, 'LORA_MISO': 19, 'LORA_MOSI': 27,
-                       'LORA_CS': 18, 'LORA_RST': 14, 'LORA_IRQ': 26},
+                       'OLED_SDA': 4, 'OLED_SCL': 15, 'OLED_RST': 16, 'LORA_SCK': 5,
+                       'LORA_MISO': 19, 'LORA_MOSI': 27, 'LORA_CS': 18, 'LORA_RST': 14,
+                       'LORA_IRQ': 26},
+    'ttgo-t-beam': {'LORA_SCK': 5, 'LORA_MISO': 19, 'LORA_MOSI': 27, 'LORA_CS': 18, 'LORA_RST': 23,
+                    'LORA_IRQ': 26, 'LORA_IO1': 33, 'LORA_IO2': 32, 'SS': 18, 'MOSI': 27, 'SCK': 5,
+                    'T8': 32, 'T9': 33, 'DAC2': 25},
+    'turta_iot_node': {'LED': 13, 'TX': 10, 'RX': 9, 'SDA': 23, 'SS': 21, 'MOSI': 18, 'SCK': 5,
+                       'A0': 4, 'A1': 25, 'A2': 26, 'A3': 27, 'A8': 38, 'T1': 25, 'T2': 26,
+                       'T3': 27, 'T4': 32, 'T5': 33, 'T6': 34, 'T7': 35, 'T8': 22, 'T9': 23,
+                       'T10': 10, 'T11': 9, 'T12': 21, 'T13': 5, 'T14': 18, 'T15': 19,
+                       'T16': 37, 'T17': 14, 'T18': 2, 'T19': 38},
     'wemosbat': 'pocket_32',
+    'wesp32': {'SCL': 4, 'SDA': 2, 'MISO': 32, 'ETH_PHY_ADDR': 0, 'ETH_PHY_MDC': 16,
+               'ETH_PHY_MDIO': 17},
     'widora-air': {'LED': 25, 'BUTTON': 0, 'SDA': 23, 'SCL': 19, 'MOSI': 16, 'MISO': 17, 'A1': 39,
                    'A2': 35, 'A3': 25, 'A4': 26, 'A5': 14, 'A6': 12, 'A7': 15, 'A8': 13, 'A9': 2,
                    'D0': 19, 'D1': 23, 'D2': 18, 'D3': 17, 'D4': 16, 'D5': 5, 'D6': 4, 'T0': 19,
@@ -216,13 +245,13 @@ def _lookup_pin(value):
         return board_pins[value]
     if value in base_pins:
         return base_pins[value]
-    raise vol.Invalid(u"Cannot resolve pin name '{}' for board {}.".format(value, CORE.board))
+    raise cv.Invalid(u"Cannot resolve pin name '{}' for board {}.".format(value, CORE.board))
 
 
 def _translate_pin(value):
     if isinstance(value, dict) or value is None:
-        raise vol.Invalid(u"This variable only supports pin numbers, not full pin schemas "
-                          u"(with inverted and mode).")
+        raise cv.Invalid(u"This variable only supports pin numbers, not full pin schemas "
+                         u"(with inverted and mode).")
     if isinstance(value, int):
         return value
     try:
@@ -230,7 +259,7 @@ def _translate_pin(value):
     except ValueError:
         pass
     if value.startswith('GPIO'):
-        return vol.Coerce(int)(value[len('GPIO'):].strip())
+        return cv.Coerce(int)(value[len('GPIO'):].strip())
     return _lookup_pin(value)
 
 
@@ -238,7 +267,7 @@ def validate_gpio_pin(value):
     value = _translate_pin(value)
     if CORE.is_esp32:
         if value < 0 or value > 39:
-            raise vol.Invalid(u"ESP32: Invalid pin number: {}".format(value))
+            raise cv.Invalid(u"ESP32: Invalid pin number: {}".format(value))
         if 6 <= value <= 11:
             _LOGGER.warning(u"ESP32: Pin %s (6-11) might already be used by the "
                             u"flash interface. Be warned.", value)
@@ -251,7 +280,7 @@ def validate_gpio_pin(value):
             _LOGGER.warning(u"ESP8266: Pin %s (6-11) might already be used by the "
                             u"flash interface. Be warned.", value)
         if value < 0 or value > 17:
-            raise vol.Invalid(u"ESP8266: Invalid pin number: {}".format(value))
+            raise cv.Invalid(u"ESP8266: Invalid pin number: {}".format(value))
         return value
     raise NotImplementedError
 
@@ -266,8 +295,8 @@ def input_pullup_pin(value):
         return output_pin(value)
     if CORE.is_esp8266:
         if value == 0:
-            raise vol.Invalid("GPIO Pin 0 does not support pullup pin mode. "
-                              "Please choose another pin.")
+            raise cv.Invalid("GPIO Pin 0 does not support pullup pin mode. "
+                             "Please choose another pin.")
         return value
     raise NotImplementedError
 
@@ -276,8 +305,8 @@ def output_pin(value):
     value = validate_gpio_pin(value)
     if CORE.is_esp32:
         if 34 <= value <= 39:
-            raise vol.Invalid(u"ESP32: GPIO{} (34-39) can only be used as an "
-                              u"input pin.".format(value))
+            raise cv.Invalid(u"ESP32: GPIO{} (34-39) can only be used as an "
+                             u"input pin.".format(value))
         return value
     if CORE.is_esp8266:
         return value
@@ -289,15 +318,15 @@ def analog_pin(value):
     if CORE.is_esp32:
         if 32 <= value <= 39:  # ADC1
             return value
-        raise vol.Invalid(u"ESP32: Only pins 32 though 39 support ADC.")
-    elif CORE.is_esp8266:
+        raise cv.Invalid(u"ESP32: Only pins 32 though 39 support ADC.")
+    if CORE.is_esp8266:
         if value == 17:  # A0
             return value
-        raise vol.Invalid(u"ESP8266: Only pin A0 (17) supports ADC.")
+        raise cv.Invalid(u"ESP8266: Only pin A0 (17) supports ADC.")
     raise NotImplementedError
 
 
-input_output_pin = vol.All(input_pin, output_pin)
+input_output_pin = cv.All(input_pin, output_pin)
 
 PIN_MODES_ESP8266 = [
     'INPUT', 'OUTPUT', 'INPUT_PULLUP', 'OUTPUT_OPEN_DRAIN', 'SPECIAL', 'FUNCTION_1',
@@ -320,47 +349,62 @@ def pin_mode(value):
     raise NotImplementedError
 
 
-GPIO_FULL_OUTPUT_PIN_SCHEMA = vol.Schema({
-    vol.Required(CONF_NUMBER): output_pin,
-    vol.Optional(CONF_MODE): pin_mode,
-    vol.Optional(CONF_INVERTED): cv.boolean,
+GPIO_FULL_OUTPUT_PIN_SCHEMA = cv.Schema({
+    cv.Required(CONF_NUMBER): output_pin,
+    cv.Optional(CONF_MODE, default='OUTPUT'): pin_mode,
+    cv.Optional(CONF_INVERTED, default=False): cv.boolean,
 })
 
-GPIO_FULL_INPUT_PIN_SCHEMA = vol.Schema({
-    vol.Required(CONF_NUMBER): input_pin,
-    vol.Optional(CONF_MODE): pin_mode,
-    vol.Optional(CONF_INVERTED): cv.boolean,
+GPIO_FULL_INPUT_PIN_SCHEMA = cv.Schema({
+    cv.Required(CONF_NUMBER): input_pin,
+    cv.Optional(CONF_MODE, default='INPUT'): pin_mode,
+    cv.Optional(CONF_INVERTED, default=False): cv.boolean,
+})
+
+GPIO_FULL_INPUT_PULLUP_PIN_SCHEMA = cv.Schema({
+    cv.Required(CONF_NUMBER): input_pin,
+    cv.Optional(CONF_MODE, default='INPUT_PULLUP'): pin_mode,
+    cv.Optional(CONF_INVERTED, default=False): cv.boolean,
+})
+
+GPIO_FULL_ANALOG_PIN_SCHEMA = cv.Schema({
+    cv.Required(CONF_NUMBER): analog_pin,
+    cv.Optional(CONF_MODE, default='INPUT'): pin_mode,
 })
 
 
 def shorthand_output_pin(value):
     value = output_pin(value)
-    return {CONF_NUMBER: value}
+    return GPIO_FULL_OUTPUT_PIN_SCHEMA({CONF_NUMBER: value})
 
 
 def shorthand_input_pin(value):
     value = input_pin(value)
-    return {CONF_NUMBER: value}
+    return GPIO_FULL_INPUT_PIN_SCHEMA({CONF_NUMBER: value})
 
 
 def shorthand_input_pullup_pin(value):
     value = input_pullup_pin(value)
-    return {CONF_NUMBER: value}
+    return GPIO_FULL_INPUT_PIN_SCHEMA({
+        CONF_NUMBER: value,
+        CONF_MODE: 'INPUT_PULLUP',
+    })
 
 
-I2CDevice = esphome_ns.class_('I2CDevice')
-PCF8574Component = io_ns.class_('PCF8574Component', Component, I2CDevice)
+def shorthand_analog_pin(value):
+    value = analog_pin(value)
+    return GPIO_FULL_INPUT_PIN_SCHEMA({CONF_NUMBER: value})
 
-PCF8574_OUTPUT_PIN_SCHEMA = vol.Schema({
-    vol.Required(CONF_PCF8574): cv.use_variable_id(PCF8574Component),
-    vol.Required(CONF_NUMBER): vol.Coerce(int),
-    vol.Optional(CONF_MODE): cv.one_of("OUTPUT", upper=True),
-    vol.Optional(CONF_INVERTED, default=False): cv.boolean,
-})
 
-PCF8574_INPUT_PIN_SCHEMA = PCF8574_OUTPUT_PIN_SCHEMA.extend({
-    vol.Optional(CONF_MODE): cv.one_of("INPUT", "INPUT_PULLUP", upper=True),
-})
+def validate_has_interrupt(value):
+    if CORE.is_esp8266:
+        if value[CONF_NUMBER] >= 16:
+            raise cv.Invalid("Pins GPIO16 and GPIO17 do not support interrupts and cannot be used "
+                             "here, got {}".format(value[CONF_NUMBER]))
+    return value
+
+
+PIN_SCHEMA_REGISTRY = SimpleRegistry()
 
 
 def internal_gpio_output_pin_schema(value):
@@ -370,8 +414,10 @@ def internal_gpio_output_pin_schema(value):
 
 
 def gpio_output_pin_schema(value):
-    if isinstance(value, dict) and CONF_PCF8574 in value:
-        return PCF8574_OUTPUT_PIN_SCHEMA(value)
+    if isinstance(value, dict):
+        for key, entry in PIN_SCHEMA_REGISTRY.items():
+            if key in value:
+                return entry[1][0](value)
     return internal_gpio_output_pin_schema(value)
 
 
@@ -381,19 +427,29 @@ def internal_gpio_input_pin_schema(value):
     return shorthand_input_pin(value)
 
 
+def internal_gpio_analog_pin_schema(value):
+    if isinstance(value, dict):
+        return GPIO_FULL_ANALOG_PIN_SCHEMA(value)
+    return shorthand_analog_pin(value)
+
+
 def gpio_input_pin_schema(value):
-    if isinstance(value, dict) and CONF_PCF8574 in value:
-        return PCF8574_INPUT_PIN_SCHEMA(value)
+    if isinstance(value, dict):
+        for key, entry in PIN_SCHEMA_REGISTRY.items():
+            if key in value:
+                return entry[1][1](value)
     return internal_gpio_input_pin_schema(value)
 
 
 def internal_gpio_input_pullup_pin_schema(value):
     if isinstance(value, dict):
-        return GPIO_FULL_INPUT_PIN_SCHEMA(value)
+        return GPIO_FULL_INPUT_PULLUP_PIN_SCHEMA(value)
     return shorthand_input_pullup_pin(value)
 
 
 def gpio_input_pullup_pin_schema(value):
-    if isinstance(value, dict) and CONF_PCF8574 in value:
-        return PCF8574_INPUT_PIN_SCHEMA(value)
-    return internal_gpio_input_pin_schema(value)
+    if isinstance(value, dict):
+        for key, entry in PIN_SCHEMA_REGISTRY.items():
+            if key in value:
+                return entry[1][1](value)
+    return internal_gpio_input_pullup_pin_schema(value)

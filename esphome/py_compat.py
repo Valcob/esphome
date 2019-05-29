@@ -7,11 +7,15 @@ IS_PY3 = PYTHON_MAJOR == 3
 
 
 # pylint: disable=no-else-return
-def safe_input(line):
+def safe_input(prompt=None):
     if IS_PY2:
-        return raw_input(line)
+        if prompt is None:
+            return raw_input()
+        return raw_input(prompt)
     else:
-        return input(line)
+        if prompt is None:
+            return input()
+        return input(prompt)
 
 
 if IS_PY2:
@@ -69,3 +73,13 @@ def indexbytes(buf, i):
         return buf[i]
     else:
         return ord(buf[i])
+
+
+if IS_PY2:
+    def decode_text(data, encoding='utf-8', errors='strict'):
+        # type: (str, str, str) -> unicode
+        return unicode(data, encoding=encoding, errors=errors)
+else:
+    def decode_text(data, encoding='utf-8', errors='strict'):
+        # type: (bytes, str, str) -> str
+        return data.decode(encoding=encoding, errors=errors)

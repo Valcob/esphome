@@ -1,10 +1,9 @@
 import binascii
 import codecs
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import logging
 import os
-import threading
 
 from esphome import const
 from esphome.core import CORE
@@ -19,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def storage_path():  # type: () -> str
-    return CORE.relative_path('.esphome', '{}.json'.format(CORE.config_filename))
+    return CORE.relative_config_path('.esphome', '{}.json'.format(CORE.config_filename))
 
 
 def ext_storage_path(base_path, config_filename):  # type: (str, str) -> str
@@ -30,19 +29,20 @@ def esphome_storage_path(base_path):  # type: (str) -> str
     return os.path.join(base_path, '.esphome', 'esphome.json')
 
 
+def trash_storage_path(base_path):  # type: (str) -> str
+    return os.path.join(base_path, '.esphome', 'trash')
+
+
 # pylint: disable=too-many-instance-attributes
 class StorageJSON(object):
-    def __init__(self, storage_version, name, esphome_core_version, esphome_version,
+    def __init__(self, storage_version, name, esphome_version,
                  src_version, arduino_version, address, esp_platform, board, build_path,
-                 firmware_bin_path, use_legacy_ota):
+                 firmware_bin_path, loaded_integrations):
         # Version of the storage JSON schema
         assert storage_version is None or isinstance(storage_version, int)
         self.storage_version = storage_version  # type: int
         # The name of the node
         self.name = name  # type: str
-        # The esphome-core version in use
-        assert esphome_core_version is None or isinstance(esphome_core_version, dict)
-        self.esphome_core_version = esphome_core_version  # type: Dict[str, str]
         # The esphome version this was compiled with
         self.esphome_version = esphome_version  # type: str
         # The version of the file in src/main.cpp - Used to migrate the file
@@ -61,14 +61,14 @@ class StorageJSON(object):
         self.build_path = build_path  # type: str
         # The absolute path to the firmware binary
         self.firmware_bin_path = firmware_bin_path  # type: str
-        # Whether to use legacy OTA, will be off after the first successful flash
-        self.use_legacy_ota = use_legacy_ota
+        # A list of strings of names of loaded integrations
+        self.loaded_integrations = loaded_integrations   # type: List[str]
+        self.loaded_integrations.sort()
 
     def as_dict(self):
         return {
             'storage_version': self.storage_version,
             'name': self.name,
-            'esphome_core_version': self.esphome_core_version,
             'esphome_version': self.esphome_version,
             'src_version': self.src_version,
             'arduino_version': self.arduino_version,
@@ -77,7 +77,7 @@ class StorageJSON(object):
             'board': self.board,
             'build_path': self.build_path,
             'firmware_bin_path': self.firmware_bin_path,
-            'use_legacy_ota': self.use_legacy_ota,
+            'loaded_integrations': self.loaded_integrations,
         }
 
     def to_json(self):
@@ -93,7 +93,6 @@ class StorageJSON(object):
         return StorageJSON(
             storage_version=1,
             name=esph.name,
-            esphome_core_version=esph.esphome_core_version,
             esphome_version=const.__version__,
             src_version=1,
             arduino_version=esph.arduino_version,
@@ -102,7 +101,7 @@ class StorageJSON(object):
             board=esph.board,
             build_path=esph.build_path,
             firmware_bin_path=esph.firmware_bin,
-            use_legacy_ota=True if old is None else old.use_legacy_ota,
+            loaded_integrations=list(esph.loaded_integrations),
         )
 
     @staticmethod
@@ -111,7 +110,6 @@ class StorageJSON(object):
         return StorageJSON(
             storage_version=1,
             name=name,
-            esphome_core_version=None,
             esphome_version=const.__version__,
             src_version=1,
             arduino_version=None,
@@ -120,7 +118,7 @@ class StorageJSON(object):
             board=board,
             build_path=None,
             firmware_bin_path=None,
-            use_legacy_ota=False,
+            loaded_integrations=[],
         )
 
     @staticmethod
@@ -130,8 +128,6 @@ class StorageJSON(object):
         storage = json.loads(text, encoding='utf-8')
         storage_version = storage['storage_version']
         name = storage.get('name')
-        esphome_core_version = storage.get('esphome_core_version',
-                                           storage.get('esphomelib_version'))
         esphome_version = storage.get('esphome_version', storage.get('esphomeyaml_version'))
         src_version = storage.get('src_version')
         arduino_version = storage.get('arduino_version')
@@ -140,10 +136,10 @@ class StorageJSON(object):
         board = storage.get('board')
         build_path = storage.get('build_path')
         firmware_bin_path = storage.get('firmware_bin_path')
-        use_legacy_ota = storage.get('use_legacy_ota')
-        return StorageJSON(storage_version, name, esphome_core_version, esphome_version,
+        loaded_integrations = storage.get('loaded_integrations', [])
+        return StorageJSON(storage_version, name, esphome_version,
                            src_version, arduino_version, address, esp_platform, board, build_path,
-                           firmware_bin_path, use_legacy_ota)
+                           firmware_bin_path, loaded_integrations)
 
     @staticmethod
     def load(path):  # type: (str) -> Optional[StorageJSON]
@@ -226,72 +222,3 @@ class EsphomeStorageJSON(object):
 
     def __eq__(self, o):  # type: (Any) -> bool
         return isinstance(o, EsphomeStorageJSON) and self.as_dict() == o.as_dict()
-
-    @property
-    def should_do_esphome_update_check(self):  # type: () -> bool
-        if self.last_update_check is None:
-            return True
-        return self.last_update_check + timedelta(days=3) < datetime.utcnow()
-
-
-class CheckForUpdateThread(threading.Thread):
-    def __init__(self, path):
-        threading.Thread.__init__(self)
-        self._path = path
-
-    @property
-    def docs_base(self):
-        return 'https://beta.esphome.io' if 'b' in const.__version__ else \
-            'https://esphome.io'
-
-    def fetch_remote_version(self):
-        import requests
-
-        storage = EsphomeStorageJSON.load(self._path) or \
-            EsphomeStorageJSON.get_default()
-        if not storage.should_do_esphome_update_check:
-            return storage
-
-        req = requests.get('{}/_static/version'.format(self.docs_base))
-        req.raise_for_status()
-        storage.remote_version = req.text.strip()
-        storage.last_update_check = datetime.utcnow()
-        storage.save(self._path)
-        return storage
-
-    @staticmethod
-    def format_version(ver):
-        vstr = '.'.join(map(str, ver.version))
-        if ver.prerelease:
-            vstr += ver.prerelease[0] + str(ver.prerelease[1])
-        return vstr
-
-    def cmp_versions(self, storage):
-        # pylint: disable=no-name-in-module, import-error
-        from distutils.version import StrictVersion
-
-        remote_version = StrictVersion(storage.remote_version)
-        self_version = StrictVersion(const.__version__)
-        if remote_version > self_version:
-            _LOGGER.warning("*" * 80)
-            _LOGGER.warning("A new version of ESPHome is available: %s (this is %s)",
-                            self.format_version(remote_version), self.format_version(self_version))
-            _LOGGER.warning("Changelog: %s/changelog/index.html", self.docs_base)
-            _LOGGER.warning("Update Instructions: %s/guides/faq.html"
-                            "#how-do-i-update-to-the-latest-version", self.docs_base)
-            _LOGGER.warning("*" * 80)
-
-    def run(self):
-        try:
-            storage = self.fetch_remote_version()
-            self.cmp_versions(storage)
-        except Exception:  # pylint: disable=broad-except
-            pass
-
-
-def start_update_check_thread(path):
-    # dummy call to strptime as python 2.7 has a bug with strptime when importing from threads
-    datetime.strptime('20180101', '%Y%m%d')
-    thread = CheckForUpdateThread(os.path.abspath(path))
-    thread.start()
-    return thread
