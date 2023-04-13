@@ -39,7 +39,7 @@ static const uint16_t ATM90E32_STATUS_S0_OVPHASEBST = 1 << 11;  // Over voltage 
 static const uint16_t ATM90E32_STATUS_S0_OVPHASECST = 1 << 10;  // Over voltage on phase C
 static const uint16_t ATM90E32_STATUS_S0_UREVWNST = 1 << 9;     // Voltage Phase Sequence Error status
 static const uint16_t ATM90E32_STATUS_S0_IREVWNST = 1 << 8;     // Current Phase Sequence Error status
-static const uint16_t ATM90E32_STATUS_S0_INOV0ST = 1 << 7;      // Calculated N line current greater tha INWarnTh reg
+static const uint16_t ATM90E32_STATUS_S0_INOV0ST = 1 << 7;      // Calculated N line current greater than INWarnTh reg
 static const uint16_t ATM90E32_STATUS_S0_TQNOLOADST = 1 << 6;   // All phase sum reactive power no-load condition status
 static const uint16_t ATM90E32_STATUS_S0_TPNOLOADST = 1 << 5;   // All phase sum active power no-load condition status
 static const uint16_t ATM90E32_STATUS_S0_TASNOLOADST = 1 << 4;  // All phase sum apparent power no-load status
@@ -234,12 +234,12 @@ static const uint16_t ATM90E32_REGISTER_IRMSBLSB = 0xEE;    // Lower Word (B RMS
 static const uint16_t ATM90E32_REGISTER_IRMSCLSB = 0xEF;    // Lower Word (C RMS Current)
 
 /* THD, FREQUENCY, ANGLE & TEMPTEMP REGISTERS*/
-static const uint16_t ATM90E32_REGISTER_THDNUA = 0xF1;   // A Voltage THD+N
-static const uint16_t ATM90E32_REGISTER_THDNUB = 0xF2;   // B Voltage THD+N
-static const uint16_t ATM90E32_REGISTER_THDNUC = 0xF3;   // C Voltage THD+N
-static const uint16_t ATM90E32_REGISTER_THDNIA = 0xF5;   // A Current THD+N
-static const uint16_t ATM90E32_REGISTER_THDNIB = 0xF6;   // B Current THD+N
-static const uint16_t ATM90E32_REGISTER_THDNIC = 0xF7;   // C Current THD+N
+static const uint16_t ATM90E32_REGISTER_UPEAKA = 0xF1;   // A Voltage Peak
+static const uint16_t ATM90E32_REGISTER_UPEAKB = 0xF2;   // B Voltage Peak
+static const uint16_t ATM90E32_REGISTER_UPEAKC = 0xF3;   // C Voltage Peak
+static const uint16_t ATM90E32_REGISTER_IPEAKA = 0xF5;   // A Current Peak
+static const uint16_t ATM90E32_REGISTER_IPEAKB = 0xF6;   // B Current Peak
+static const uint16_t ATM90E32_REGISTER_IPEAKC = 0xF7;   // C Current Peak
 static const uint16_t ATM90E32_REGISTER_FREQ = 0xF8;     // Frequency
 static const uint16_t ATM90E32_REGISTER_PANGLEA = 0xF9;  // A Mean Phase Angle
 static const uint16_t ATM90E32_REGISTER_PANGLEB = 0xFA;  // B Mean Phase Angle

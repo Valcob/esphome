@@ -1,6 +1,6 @@
 #include "status_binary_sensor.h"
 #include "esphome/core/log.h"
-#include "esphome/core/util.h"
+#include "esphome/components/network/util.h"
 #include "esphome/core/defines.h"
 
 #ifdef USE_MQTT
@@ -13,10 +13,10 @@
 namespace esphome {
 namespace status {
 
-static const char *TAG = "status";
+static const char *const TAG = "status";
 
 void StatusBinarySensor::loop() {
-  bool status = network_is_connected();
+  bool status = network::is_connected();
 #ifdef USE_MQTT
   if (mqtt::global_mqtt_client != nullptr) {
     status = status && mqtt::global_mqtt_client->is_connected();
@@ -30,7 +30,7 @@ void StatusBinarySensor::loop() {
 
   this->publish_state(status);
 }
-void StatusBinarySensor::setup() { this->publish_state(false); }
+void StatusBinarySensor::setup() { this->publish_initial_state(false); }
 void StatusBinarySensor::dump_config() { LOG_BINARY_SENSOR("", "Status Binary Sensor", this); }
 
 }  // namespace status

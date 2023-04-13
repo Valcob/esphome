@@ -4,7 +4,7 @@
 namespace esphome {
 namespace ntc {
 
-static const char *TAG = "ntc";
+static const char *const TAG = "ntc";
 
 void NTC::setup() {
   this->sensor_->add_on_state_callback([this](float value) { this->process_(value); });
@@ -14,14 +14,14 @@ void NTC::setup() {
 void NTC::dump_config() { LOG_SENSOR("", "NTC Sensor", this) }
 float NTC::get_setup_priority() const { return setup_priority::DATA; }
 void NTC::process_(float value) {
-  if (isnan(value)) {
+  if (std::isnan(value)) {
     this->publish_state(NAN);
     return;
   }
 
-  float lr = logf(value);
-  float v = this->a_ + this->b_ * lr + this->c_ * lr * lr * lr;
-  float temp = 1 / v - 273.15f;
+  double lr = log(double(value));
+  double v = this->a_ + this->b_ * lr + this->c_ * lr * lr * lr;
+  auto temp = float(1.0 / v - 273.15);
 
   ESP_LOGD(TAG, "'%s' - Temperature: %.1f°C", this->name_.c_str(), temp);
   this->publish_state(temp);
